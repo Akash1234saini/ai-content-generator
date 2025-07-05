@@ -3,97 +3,131 @@ import AuthForm from '@/components/AuthForm';
 import PromptDashboard from '@/components/PromptDashboard';
 import ContentResults from '@/components/ContentResults';
 import HistoryPage from '@/components/HistoryPage';
-import { generateContent } from '@/services/openaiService';
+import { generateContent, loadContentHistory, deleteContentHistory } from '@/services/openaiService';
+import type { ContentResult, HistoryEntry } from '@/services/openaiService';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import type { User, Session } from '@supabase/supabase-js';
 
-interface User {
+interface UserProfile {
   email: string;
   name: string;
-}
-
-interface ContentResult {
-  platform: string;
-  content: string;
-  imagePrompt?: string;
-}
-
-interface HistoryEntry {
   id: string;
-  prompt: string;
-  platforms: string[];
-  results: ContentResult[];
-  timestamp: Date;
 }
 
 type AppState = 'auth' | 'dashboard' | 'results' | 'history';
 
 const Index = () => {
   const [currentState, setCurrentState] = useState<AppState>('auth');
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [generatedContent, setGeneratedContent] = useState<ContentResult[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const { toast } = useToast();
 
-  // Load history from localStorage on component mount
+  // Set up auth state listener
   useEffect(() => {
-    const savedHistory = localStorage.getItem('content-history');
-    if (savedHistory) {
-      try {
-        const parsedHistory = JSON.parse(savedHistory).map((entry: any) => ({
-          ...entry,
-          timestamp: new Date(entry.timestamp)
-        }));
-        setHistory(parsedHistory);
-      } catch (error) {
-        console.error('Error loading history:', error);
+    // Set up auth state listener first
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        
+        if (session?.user) {
+          const userProfile: UserProfile = {
+            id: session.user.id,
+            email: session.user.email!,
+            name: session.user.user_metadata?.display_name || session.user.email!.split('@')[0]
+          };
+          setUser(userProfile);
+          setCurrentState('dashboard');
+          
+          // Load user's content history
+          setTimeout(() => {
+            loadUserHistory();
+          }, 0);
+        } else {
+          setUser(null);
+          setCurrentState('auth');
+          setHistory([]);
+        }
       }
-    }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        const userProfile: UserProfile = {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata?.display_name || session.user.email!.split('@')[0]
+        };
+        setUser(userProfile);
+        setCurrentState('dashboard');
+        loadUserHistory();
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Save history to localStorage whenever it changes
-  useEffect(() => {
-    if (history.length > 0) {
-      localStorage.setItem('content-history', JSON.stringify(history));
+  const loadUserHistory = async () => {
+    if (!user) return;
+    
+    setIsLoadingHistory(true);
+    try {
+      const historyData = await loadContentHistory();
+      setHistory(historyData);
+    } catch (error) {
+      console.error('Error loading history:', error);
+      toast({
+        title: "Failed to load history",
+        description: "Could not load your content history",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingHistory(false);
     }
-  }, [history]);
+  };
 
-  const handleAuth = (userData: User) => {
-    setUser(userData);
-    setCurrentState('dashboard');
+  const handleAuth = (userData: UserProfile) => {
+    // Auth state is now handled by the useEffect listener
     toast({
       title: "Welcome!",
       description: `Logged in as ${userData.name}`,
     });
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    setCurrentState('auth');
-    setGeneratedContent([]);
-    toast({
-      title: "Logged out",
-      description: "See you next time!",
-    });
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Logged out",
+        description: "See you next time!",
+      });
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast({
+        title: "Logout failed",
+        description: "There was an error logging out",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleGenerate = async (prompt: string, platforms: string[], generateImages: boolean = false) => {
+    if (!user) return;
+    
     setIsGenerating(true);
     
     try {
       const results = await generateContent({ prompt, platforms, generateImages });
       setGeneratedContent(results);
       
-      // Add to history
-      const newEntry: HistoryEntry = {
-        id: Date.now().toString(),
-        prompt,
-        platforms,
-        results,
-        timestamp: new Date()
-      };
-      
-      setHistory(prev => [newEntry, ...prev].slice(0, 50)); // Keep last 50 entries
+      // Reload history to get the new entry saved by the edge function
+      await loadUserHistory();
       setCurrentState('results');
       
       toast({
@@ -121,12 +155,22 @@ const Index = () => {
     });
   };
 
-  const handleDeleteHistoryEntry = (id: string) => {
-    setHistory(prev => prev.filter(entry => entry.id !== id));
-    toast({
-      title: "Entry deleted",
-      description: "History entry has been removed",
-    });
+  const handleDeleteHistoryEntry = async (id: string) => {
+    try {
+      await deleteContentHistory(id);
+      setHistory(prev => prev.filter(entry => entry.id !== id));
+      toast({
+        title: "Entry deleted",
+        description: "History entry has been removed",
+      });
+    } catch (error) {
+      console.error('Error deleting history:', error);
+      toast({
+        title: "Delete failed",
+        description: "Could not delete the history entry",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleRegenerateContent = async (prompt: string, platforms: string[]) => {
