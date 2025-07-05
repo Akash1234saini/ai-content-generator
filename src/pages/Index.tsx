@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AuthForm from '@/components/AuthForm';
 import PromptDashboard from '@/components/PromptDashboard';
@@ -15,6 +14,7 @@ interface User {
 interface ContentResult {
   platform: string;
   content: string;
+  imagePrompt?: string;
 }
 
 interface HistoryEntry {
@@ -77,11 +77,11 @@ const Index = () => {
     });
   };
 
-  const handleGenerate = async (prompt: string, platforms: string[]) => {
+  const handleGenerate = async (prompt: string, platforms: string[], generateImages: boolean = false) => {
     setIsGenerating(true);
     
     try {
-      const results = await generateContent({ prompt, platforms });
+      const results = await generateContent({ prompt, platforms, generateImages });
       setGeneratedContent(results);
       
       // Add to history
@@ -98,7 +98,7 @@ const Index = () => {
       
       toast({
         title: "Content generated!",
-        description: `Created content for ${platforms.length} platform${platforms.length > 1 ? 's' : ''}`,
+        description: `Created content for ${platforms.length} platform${platforms.length > 1 ? 's' : ''}${generateImages ? ' with image prompts' : ''}`,
       });
     } catch (error) {
       console.error('Generation error:', error);

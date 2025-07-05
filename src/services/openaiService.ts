@@ -6,12 +6,14 @@
 interface GenerateContentRequest {
   prompt: string;
   platforms: string[];
+  generateImages?: boolean;
   apiKey?: string;
 }
 
 interface ContentResult {
   platform: string;
   content: string;
+  imagePrompt?: string;
 }
 
 // Mock content templates for demonstration
@@ -110,9 +112,27 @@ Best regards,
 💼 Recommended action: Focus on the green quadrant first!`
 };
 
+// Image prompt templates for different platforms
+const imagePromptTemplates: { [key: string]: (prompt: string) => string } = {
+  linkedin: (prompt: string) => `Professional, clean business photo related to ${prompt}. Corporate style, high-quality, suitable for LinkedIn professional network. Modern office setting or business context.`,
+
+  instagram: (prompt: string) => `Trendy, visually appealing image about ${prompt}. Instagram-worthy, bright colors, engaging composition, perfect for social media feeds. Aesthetic and eye-catching.`,
+
+  facebook: (prompt: string) => `Friendly, relatable image representing ${prompt}. Social media friendly, warm and inviting, suitable for Facebook community sharing. Approachable and engaging.`,
+
+  pinterest: (prompt: string) => `Pinterest-style vertical image for ${prompt}. High-quality, pin-worthy design with text overlay potential. Inspirational and save-worthy aesthetic.`,
+
+  whatsapp: (prompt: string) => `Simple, clear image illustrating ${prompt}. Easy to understand at small sizes, suitable for mobile messaging. Clean and straightforward visual.`,
+
+  email: (prompt: string) => `Professional email header image for ${prompt}. Clean, business-appropriate design suitable for email newsletters. Polished and professional appearance.`,
+
+  quadrant: (prompt: string) => `Analytical diagram or chart visualization for ${prompt}. Data-driven, strategic business graphic. Professional infographic style with clear quadrants or sections.`
+};
+
 export const generateContent = async ({ 
   prompt, 
   platforms, 
+  generateImages = false,
   apiKey 
 }: GenerateContentRequest): Promise<ContentResult[]> => {
   // Simulate API call delay
@@ -135,7 +155,7 @@ export const generateContent = async ({
         },
         {
           role: 'user',
-          content: `Create engaging content for ${platforms.join(', ')} using this input: ${prompt}. Format it suitable for each selected platform. Keep it clear, short, and platform-ready.`
+          content: `Create engaging content for ${platforms.join(', ')} using this input: ${prompt}. Format it suitable for each selected platform. Keep it clear, short, and platform-ready.${generateImages ? ' Also provide image generation prompts for each platform.' : ''}`
         }
       ],
       temperature: 0.7,
@@ -152,7 +172,12 @@ export const generateContent = async ({
     platform,
     content: mockContentTemplates[platform] 
       ? mockContentTemplates[platform](prompt)
-      : `Here's great content about ${prompt} optimized for ${platform}!\n\nThis is where your AI-generated content would appear, tailored specifically for ${platform}'s audience and format requirements.\n\n✨ Ready to post and engage your audience!`
+      : `Here's great content about ${prompt} optimized for ${platform}!\n\nThis is where your AI-generated content would appear, tailored specifically for ${platform}'s audience and format requirements.\n\n✨ Ready to post and engage your audience!`,
+    ...(generateImages && {
+      imagePrompt: imagePromptTemplates[platform] 
+        ? imagePromptTemplates[platform](prompt)
+        : `Professional image representing ${prompt}, optimized for ${platform} platform aesthetic and requirements.`
+    })
   }));
 };
 

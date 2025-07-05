@@ -11,13 +11,15 @@ import {
   Copy, 
   ExternalLink,
   Check,
-  MessageCircle
+  MessageCircle,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ContentResult {
   platform: string;
   content: string;
+  imagePrompt?: string;
 }
 
 interface ContentResultsProps {
@@ -39,11 +41,17 @@ const platformColors: { [key: string]: string } = {
 const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
   const [editingResults, setEditingResults] = useState<ContentResult[]>(results);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [copiedImageIndex, setCopiedImageIndex] = useState<number | null>(null);
   const { toast } = useToast();
 
   const handleEdit = (index: number) => {
     setEditingIndex(index);
+  };
+
+  const handleEditImage = (index: number) => {
+    setEditingImageIndex(index);
   };
 
   const handleSaveEdit = (index: number) => {
@@ -55,9 +63,24 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
     });
   };
 
+  const handleSaveImageEdit = (index: number) => {
+    setEditingImageIndex(null);
+    onSave(editingResults);
+    toast({
+      title: "Image prompt saved",
+      description: "Your edited image prompt has been saved to history"
+    });
+  };
+
   const handleContentChange = (index: number, newContent: string) => {
     const updated = [...editingResults];
     updated[index] = { ...updated[index], content: newContent };
+    setEditingResults(updated);
+  };
+
+  const handleImagePromptChange = (index: number, newImagePrompt: string) => {
+    const updated = [...editingResults];
+    updated[index] = { ...updated[index], imagePrompt: newImagePrompt };
     setEditingResults(updated);
   };
 
@@ -69,6 +92,24 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
       toast({
         title: "Copied to clipboard",
         description: "Content ready to paste!"
+      });
+    } catch (err) {
+      toast({
+        title: "Copy failed",
+        description: "Please select and copy manually",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCopyImagePrompt = async (imagePrompt: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(imagePrompt);
+      setCopiedImageIndex(index);
+      setTimeout(() => setCopiedImageIndex(null), 2000);
+      toast({
+        title: "Image prompt copied",
+        description: "Image prompt ready to paste!"
       });
     } catch (err) {
       toast({
@@ -114,6 +155,8 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
     });
   };
 
+  const hasImagePrompts = results.some(result => result.imagePrompt);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4">
       <div className="max-w-4xl mx-auto">
@@ -121,7 +164,10 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Generated Content</h1>
-            <p className="text-gray-600">Your AI-generated content is ready! Edit, copy, or share directly.</p>
+            <p className="text-gray-600">
+              Your AI-generated content is ready! Edit, copy, or share directly.
+              {hasImagePrompts && " Image prompts included for visual content creation."}
+            </p>
           </div>
           <Button onClick={onBack} variant="outline">
             ← Back to Dashboard
@@ -138,15 +184,25 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
                     <div className={`w-4 h-4 rounded-full ${platformColors[result.platform] || 'bg-gray-500'}`}></div>
                     <CardTitle className="text-lg capitalize">{result.platform}</CardTitle>
                   </div>
-                  <Badge variant="secondary" className="text-xs">
-                    {result.content.length} chars
-                  </Badge>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {result.content.length} chars
+                    </Badge>
+                    {result.imagePrompt && (
+                      <Badge variant="outline" className="text-xs flex items-center space-x-1">
+                        <ImageIcon className="w-3 h-3" />
+                        <span>Image</span>
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               
               <CardContent className="space-y-4">
+                {/* Content Section */}
                 {editingIndex === index ? (
                   <div className="space-y-3">
+                    <label className="text-sm font-medium text-gray-700">Content</label>
                     <Textarea
                       value={result.content}
                       onChange={(e) => handleContentChange(index, e.target.value)}
@@ -173,10 +229,13 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="bg-gray-50 rounded-lg p-4 min-h-[120px]">
-                      <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                        {result.content}
-                      </p>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-2 block">Content</label>
+                      <div className="bg-gray-50 rounded-lg p-4 min-h-[120px]">
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                          {result.content}
+                        </p>
+                      </div>
                     </div>
                     
                     <div className="flex flex-wrap gap-2">
@@ -214,6 +273,81 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
                         <ExternalLink className="w-3 h-3" />
                       </Button>
                     </div>
+                  </div>
+                )}
+
+                {/* Image Prompt Section */}
+                {result.imagePrompt && (
+                  <div className="border-t pt-4">
+                    {editingImageIndex === index ? (
+                      <div className="space-y-3">
+                        <label className="text-sm font-medium text-gray-700 flex items-center space-x-2">
+                          <ImageIcon className="w-4 h-4" />
+                          <span>Image Prompt</span>
+                        </label>
+                        <Textarea
+                          value={result.imagePrompt}
+                          onChange={(e) => handleImagePromptChange(index, e.target.value)}
+                          rows={3}
+                          className="text-sm resize-none"
+                        />
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveImageEdit(index)}
+                            className="flex items-center space-x-1"
+                          >
+                            <Save className="w-4 h-4" />
+                            <span>Save</span>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingImageIndex(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <label className="text-sm font-medium text-gray-700 flex items-center space-x-2">
+                          <ImageIcon className="w-4 h-4" />
+                          <span>Image Prompt</span>
+                        </label>
+                        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                          <p className="text-sm text-gray-700 leading-relaxed">
+                            {result.imagePrompt}
+                          </p>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditImage(index)}
+                            className="flex items-center space-x-1"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                            <span>Edit</span>
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCopyImagePrompt(result.imagePrompt, index)}
+                            className="flex items-center space-x-1"
+                          >
+                            {copiedImageIndex === index ? (
+                              <Check className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                            <span>{copiedImageIndex === index ? 'Copied!' : 'Copy'}</span>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
