@@ -63,7 +63,7 @@ serve(async (req) => {
       const fullPrompt = `${platformPrompt}\n\nUser prompt: ${prompt}\n\nGenerate content optimized for ${platform}. Make it engaging, relevant, and platform-appropriate.`;
 
       // Call Gemini API
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,7 +93,7 @@ serve(async (req) => {
 
       // Generate image prompt if requested
       if (generateImages) {
-        const imagePromptResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`, {
+        const imagePromptResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
