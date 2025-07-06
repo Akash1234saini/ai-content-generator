@@ -138,7 +138,7 @@ const Index = () => {
       console.error('Generation error:', error);
       toast({
         title: "Generation failed",
-        description: "Please try again or check your connection",
+        description: error instanceof Error ? error.message : "Please try again or check your connection",
         variant: "destructive"
       });
     } finally {

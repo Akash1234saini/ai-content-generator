@@ -20,6 +20,8 @@ export const generateContent = async ({
   generateImages = false
 }: GenerateContentRequest): Promise<ContentResult[]> => {
   try {
+    console.log('Calling edge function with:', { prompt, platforms, generateImages });
+    
     const { data, error } = await supabase.functions.invoke('generate-content', {
       body: {
         prompt,
@@ -28,9 +30,11 @@ export const generateContent = async ({
       }
     });
 
+    console.log('Edge function response:', { data, error });
+
     if (error) {
       console.error('Edge function error:', error);
-      throw new Error(`Failed to generate content: ${error.message}`);
+      throw new Error(`Failed to generate content: ${error.message || JSON.stringify(error)}`);
     }
 
     return data?.results || [];
