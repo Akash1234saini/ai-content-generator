@@ -35,7 +35,9 @@ const platformColors: { [key: string]: string } = {
   pinterest: 'bg-red-600',
   whatsapp: 'bg-green-600',
   email: 'bg-gray-600',
-  quadrant: 'bg-purple-600'
+  quadrant: 'bg-purple-600',
+  youtube: 'bg-red-500',
+  miniblog: 'bg-orange-600'
 };
 
 const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
@@ -120,7 +122,24 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
     }
   };
 
-  const handleShare = (platform: string, content: string) => {
+  const handleShare = async (platform: string, content: string) => {
+    // First copy content to clipboard
+    try {
+      await navigator.clipboard.writeText(content);
+      toast({
+        title: "Content copied!",
+        description: "Content copied to clipboard and opening share dialog"
+      });
+    } catch (err) {
+      toast({
+        title: "Copy failed",
+        description: "Please copy content manually",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Then open share dialog
     const encodedContent = encodeURIComponent(content);
     let shareUrl = '';
 
@@ -140,19 +159,29 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
       case 'email':
         shareUrl = `mailto:?subject=Generated Content&body=${encodedContent}`;
         break;
+      case 'youtube':
+        // For YouTube, just copy as there's no direct share URL for video uploads
+        toast({
+          title: "Content ready for YouTube",
+          description: "Content copied! Paste it when creating your video"
+        });
+        return;
+      case 'miniblog':
+        // For Miniblog, just copy as there's no standard share URL
+        toast({
+          title: "Content ready for your blog",
+          description: "Content copied! Paste it in your blog editor"
+        });
+        return;
       default:
         toast({
           title: "Direct sharing not available",
-          description: "Please copy the content and share manually"
+          description: "Content copied to clipboard for manual sharing"
         });
         return;
     }
 
     window.open(shareUrl, '_blank');
-    toast({
-      title: "Opening share dialog",
-      description: `Sharing to ${platform}`
-    });
   };
 
   const hasImagePrompts = results.some(result => result.imagePrompt);

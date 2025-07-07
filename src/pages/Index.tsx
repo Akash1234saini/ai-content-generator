@@ -41,7 +41,14 @@ const Index = () => {
             name: session.user.user_metadata?.display_name || session.user.email!.split('@')[0]
           };
           setUser(userProfile);
-          setCurrentState('dashboard');
+          
+          // Restore saved state or default to dashboard
+          const savedState = localStorage.getItem('currentAppState') as AppState;
+          if (savedState && ['dashboard', 'results', 'history'].includes(savedState)) {
+            setCurrentState(savedState);
+          } else {
+            setCurrentState('dashboard');
+          }
           
           // Load user's content history
           setTimeout(() => {
@@ -65,7 +72,15 @@ const Index = () => {
           name: session.user.user_metadata?.display_name || session.user.email!.split('@')[0]
         };
         setUser(userProfile);
-        setCurrentState('dashboard');
+        
+        // Restore saved state or default to dashboard
+        const savedState = localStorage.getItem('currentAppState') as AppState;
+        if (savedState && ['dashboard', 'results', 'history'].includes(savedState)) {
+          setCurrentState(savedState);
+        } else {
+          setCurrentState('dashboard');
+        }
+        
         loadUserHistory();
       }
     });
@@ -129,6 +144,7 @@ const Index = () => {
       // Reload history to get the new entry saved by the edge function
       await loadUserHistory();
       setCurrentState('results');
+      localStorage.setItem('currentAppState', 'results');
       
       toast({
         title: "Content generated!",
@@ -175,6 +191,7 @@ const Index = () => {
 
   const handleRegenerateContent = async (prompt: string, platforms: string[]) => {
     setCurrentState('dashboard');
+    localStorage.setItem('currentAppState', 'dashboard');
     // Small delay to show transition, then regenerate
     setTimeout(() => {
       handleGenerate(prompt, platforms);
@@ -194,7 +211,10 @@ const Index = () => {
             onGenerate={handleGenerate}
             generatedContent={generatedContent}
             isGenerating={isGenerating}
-            onShowHistory={() => setCurrentState('history')}
+            onShowHistory={() => {
+              setCurrentState('history');
+              localStorage.setItem('currentAppState', 'history');
+            }}
           />
         );
       
@@ -203,7 +223,10 @@ const Index = () => {
           <ContentResults
             results={generatedContent}
             onSave={handleSaveContent}
-            onBack={() => setCurrentState('dashboard')}
+            onBack={() => {
+              setCurrentState('dashboard');
+              localStorage.setItem('currentAppState', 'dashboard');
+            }}
           />
         );
       
@@ -211,7 +234,10 @@ const Index = () => {
         return (
           <HistoryPage
             history={history}
-            onBack={() => setCurrentState('dashboard')}
+            onBack={() => {
+              setCurrentState('dashboard');
+              localStorage.setItem('currentAppState', 'dashboard');
+            }}
             onDeleteEntry={handleDeleteHistoryEntry}
             onRegenerateContent={handleRegenerateContent}
           />

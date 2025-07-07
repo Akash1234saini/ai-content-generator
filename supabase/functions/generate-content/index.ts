@@ -19,7 +19,9 @@ const platformPrompts = {
   pinterest: "Create Pinterest-optimized content with SEO-friendly descriptions.",
   whatsapp: "Create concise WhatsApp message content that's easy to share.",
   email: "Create compelling email content with clear subject line and call-to-action.",
-  quadrant: "Create strategic business content suitable for decision-makers."
+  quadrant: "Create strategic business content suitable for decision-makers.",
+  youtube: "Create YouTube video content with an engaging title and detailed script broken down scene by scene. Include timing suggestions and engagement hooks.",
+  miniblog: "Create a comprehensive 500-word blog post that is informative, engaging, and well-structured with clear sections."
 };
 
 serve(async (req) => {
@@ -93,6 +95,17 @@ serve(async (req) => {
 
       // Generate image prompt if requested
       if (generateImages) {
+        let imagePromptText = '';
+        
+        // Platform-specific image prompt instructions
+        if (platform === 'youtube') {
+          imagePromptText = `Create a detailed YouTube thumbnail image prompt based on this content: ${content.substring(0, 200)}... The image should be 16:9 aspect ratio (1280x720), eye-catching, with bold text overlay potential, and designed to attract clicks. Make it vibrant and engaging for YouTube's platform.`;
+        } else if (platform === 'miniblog') {
+          imagePromptText = `Create a detailed blog header image prompt based on this content: ${content.substring(0, 200)}... The image should be 16:9 or 3:2 aspect ratio, professional, clean, and suitable for a blog post header. Make it relevant to the blog topic and visually appealing.`;
+        } else {
+          imagePromptText = `Create a detailed image prompt for ${platform} based on this content: ${content.substring(0, 200)}... Make it visual, specific, and optimized for ${platform}'s visual style.`;
+        }
+
         const imagePromptResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
           method: 'POST',
           headers: {
@@ -101,7 +114,7 @@ serve(async (req) => {
           body: JSON.stringify({
             contents: [{
               parts: [{
-                text: `Create a detailed image prompt for ${platform} based on this content: ${content.substring(0, 200)}... Make it visual, specific, and optimized for ${platform}'s visual style.`
+                text: imagePromptText
               }]
             }]
           }),

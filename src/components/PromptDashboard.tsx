@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Image as ImageIcon
 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 
 interface User {
@@ -41,7 +42,9 @@ const platforms = [
   { id: 'pinterest', name: 'Pinterest', color: 'bg-red-600' },
   { id: 'whatsapp', name: 'WhatsApp', color: 'bg-green-600' },
   { id: 'email', name: 'Email', color: 'bg-gray-600' },
-  { id: 'quadrant', name: 'Quadrant', color: 'bg-purple-600' }
+  { id: 'quadrant', name: 'Quadrant', color: 'bg-purple-600' },
+  { id: 'youtube', name: 'YouTube', color: 'bg-red-500' },
+  { id: 'miniblog', name: 'Miniblog', color: 'bg-orange-600' }
 ];
 
 const PromptDashboard = ({ 
@@ -55,6 +58,8 @@ const PromptDashboard = ({
   const [prompt, setPrompt] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [generateImages, setGenerateImages] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [estimatedTime, setEstimatedTime] = useState(0);
   const { toast } = useToast();
 
   const handlePlatformToggle = (platformId: string) => {
@@ -84,8 +89,36 @@ const PromptDashboard = ({
       return;
     }
 
+    // Start progress simulation
+    setProgress(0);
+    const baseTime = selectedPlatforms.length * 2; // 2 seconds per platform
+    const imageTime = generateImages ? selectedPlatforms.length * 1.5 : 0; // 1.5 seconds extra per platform for images
+    setEstimatedTime(Math.ceil(baseTime + imageTime));
+
+    // Simulate progress
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(interval);
+          return 90; // Stop at 90% until actual completion
+        }
+        return prev + 10;
+      });
+    }, (baseTime + imageTime) * 100); // Update every 10% of estimated time
+
     onGenerate(prompt.trim(), selectedPlatforms, generateImages);
   };
+
+  // Reset progress when generation is complete
+  React.useEffect(() => {
+    if (!isGenerating && progress > 0) {
+      setProgress(100);
+      setTimeout(() => {
+        setProgress(0);
+        setEstimatedTime(0);
+      }, 1000);
+    }
+  }, [isGenerating, progress]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -222,12 +255,23 @@ const PromptDashboard = ({
               </div>
             </div>
 
+            {/* Progress Bar */}
+            {isGenerating && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Generating content...</span>
+                  <span>~{estimatedTime}s remaining</span>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </div>
+            )}
+
             {/* Generate Button */}
             <Button
               onClick={handleGenerate}
               disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0}
               size="lg"
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-4 text-lg"
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-4 text-lg disabled:opacity-50"
             >
               {isGenerating ? (
                 <>
@@ -283,7 +327,7 @@ const PromptDashboard = ({
                 ))}
               </div>
               <div className="mt-4 text-center">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={onShowHistory}>
                   View Full Results →
                 </Button>
               </div>

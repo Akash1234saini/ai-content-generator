@@ -36,7 +36,7 @@ const HistoryPage = ({ history, onBack, onDeleteEntry, onRegenerateContent }: Hi
   const [selectedPlatformFilter, setSelectedPlatformFilter] = useState<string>('all');
   const { toast } = useToast();
 
-  const platforms = ['all', 'linkedin', 'instagram', 'facebook', 'pinterest', 'whatsapp', 'email', 'quadrant'];
+  const platforms = ['all', 'linkedin', 'instagram', 'facebook', 'pinterest', 'whatsapp', 'email', 'quadrant', 'youtube', 'miniblog'];
 
   const filteredHistory = history.filter(entry => {
     const matchesSearch = entry.prompt.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -62,7 +62,24 @@ const HistoryPage = ({ history, onBack, onDeleteEntry, onRegenerateContent }: Hi
     }
   };
 
-  const handleShare = (platform: string, content: string) => {
+  const handleShare = async (platform: string, content: string) => {
+    // First copy content to clipboard
+    try {
+      await navigator.clipboard.writeText(content);
+      toast({
+        title: "Content copied!",
+        description: "Content copied to clipboard and opening share dialog"
+      });
+    } catch (err) {
+      toast({
+        title: "Copy failed",
+        description: "Please copy content manually",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Then open share dialog
     const encodedContent = encodeURIComponent(content);
     let shareUrl = '';
 
@@ -82,10 +99,22 @@ const HistoryPage = ({ history, onBack, onDeleteEntry, onRegenerateContent }: Hi
       case 'email':
         shareUrl = `mailto:?subject=Generated Content&body=${encodedContent}`;
         break;
+      case 'youtube':
+        toast({
+          title: "Content ready for YouTube",
+          description: "Content copied! Paste it when creating your video"
+        });
+        return;
+      case 'miniblog':
+        toast({
+          title: "Content ready for your blog",
+          description: "Content copied! Paste it in your blog editor"
+        });
+        return;
       default:
         toast({
           title: "Direct sharing not available",
-          description: "Please copy the content and share manually"
+          description: "Content copied to clipboard for manual sharing"
         });
         return;
     }
