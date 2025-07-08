@@ -1,4 +1,3 @@
-
 // Gemini Content Generation Service using Supabase Edge Functions
 import { supabase } from '@/integrations/supabase/client';
 
@@ -88,5 +87,22 @@ export const deleteContentHistory = async (id: string) => {
   if (error) {
     console.error('Error deleting history:', error);
     throw error;
+  }
+};
+
+export const updateContentHistory = async (id: string, updatedEntry: HistoryEntry): Promise<void> => {
+  const { error } = await supabase
+    .from('content_history')
+    .update({
+      prompt: updatedEntry.prompt,
+      platforms: updatedEntry.platforms,
+      results: updatedEntry.results,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error updating content history:', error);
+    throw new Error('Failed to update content history');
   }
 };

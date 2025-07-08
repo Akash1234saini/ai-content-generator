@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import AuthForm from '@/components/AuthForm';
 import PromptDashboard from '@/components/PromptDashboard';
 import ContentResults from '@/components/ContentResults';
 import HistoryPage from '@/components/HistoryPage';
-import { generateContent, loadContentHistory, deleteContentHistory } from '@/services/openaiService';
+import { generateContent, loadContentHistory, deleteContentHistory, updateContentHistory } from '@/services/openaiService';
 import type { ContentResult, HistoryEntry } from '@/services/openaiService';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,67 +28,7 @@ const Index = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const { toast } = useToast();
 
-  // Set up auth state listener
-  useEffect(() => {
-    // Set up auth state listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        
-        if (session?.user) {
-          const userProfile: UserProfile = {
-            id: session.user.id,
-            email: session.user.email!,
-            name: session.user.user_metadata?.display_name || session.user.email!.split('@')[0]
-          };
-          setUser(userProfile);
-          
-          // Restore saved state or default to dashboard
-          const savedState = localStorage.getItem('currentAppState') as AppState;
-          if (savedState && ['dashboard', 'results', 'history'].includes(savedState)) {
-            setCurrentState(savedState);
-          } else {
-            setCurrentState('dashboard');
-          }
-          
-          // Load user's content history
-          setTimeout(() => {
-            loadUserHistory();
-          }, 0);
-        } else {
-          setUser(null);
-          setCurrentState('auth');
-          setHistory([]);
-        }
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        const userProfile: UserProfile = {
-          id: session.user.id,
-          email: session.user.email!,
-          name: session.user.user_metadata?.display_name || session.user.email!.split('@')[0]
-        };
-        setUser(userProfile);
-        
-        // Restore saved state or default to dashboard
-        const savedState = localStorage.getItem('currentAppState') as AppState;
-        if (savedState && ['dashboard', 'results', 'history'].includes(savedState)) {
-          setCurrentState(savedState);
-        } else {
-          setCurrentState('dashboard');
-        }
-        
-        loadUserHistory();
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
+  // Function to load user history
   const loadUserHistory = async () => {
     if (!user) return;
     
@@ -106,6 +47,83 @@ const Index = () => {
       setIsLoadingHistory(false);
     }
   };
+
+  // Set up auth state listener
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
+        setSession(session);
+        
+        if (session?.user) {
+          const userProfile: UserProfile = {
+            id: session.user.id,
+            email: session.user.email!,
+            name: session.user.user_metadata?.display_name || session.user.email!.split('@')[0]
+          };
+          setUser(userProfile);
+          
+          // Restore saved state or default to dashboard
+          const savedState = localStorage.getItem('currentAppState') as AppState;
+          if (savedState && ['dashboard', 'results', 'history'].includes(savedState)) {
+            setCurrentState(savedState);
+          } else {
+            setCurrentState('dashboard');
+          }
+          
+          // Always load user's content history when user logs in
+          console.log('Loading history for user:', userProfile.id);
+          setTimeout(() => {
+            loadUserHistory();
+          }, 100);
+        } else {
+          setUser(null);
+          setCurrentState('auth');
+          setHistory([]);
+          // Clear saved state when logging out
+          localStorage.removeItem('currentAppState');
+        }
+      }
+    );
+
+    // Check for existing session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.id);
+      setSession(session);
+      if (session?.user) {
+        const userProfile: UserProfile = {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata?.display_name || session.user.email!.split('@')[0]
+        };
+        setUser(userProfile);
+        
+        // Restore saved state or default to dashboard
+        const savedState = localStorage.getItem('currentAppState') as AppState;
+        if (savedState && ['dashboard', 'results', 'history'].includes(savedState)) {
+          setCurrentState(savedState);
+        } else {
+          setCurrentState('dashboard');
+        }
+        
+        // Load history immediately for existing session
+        console.log('Loading history for existing session:', userProfile.id);
+        setTimeout(() => {
+          loadUserHistory();
+        }, 100);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Reload history when user changes (additional safety check)
+  useEffect(() => {
+    if (user && history.length === 0) {
+      console.log('User changed or history empty, reloading history:', user.id);
+      loadUserHistory();
+    }
+  }, [user]);
 
   const handleAuth = (userData: UserProfile) => {
     // Auth state is now handled by the useEffect listener
@@ -189,6 +207,24 @@ const Index = () => {
     }
   };
 
+  const handleUpdateHistoryEntry = async (id: string, updatedEntry: HistoryEntry) => {
+    try {
+      await updateContentHistory(id, updatedEntry);
+      setHistory(prev => prev.map(entry => entry.id === id ? updatedEntry : entry));
+      toast({
+        title: "Entry updated",
+        description: "History entry has been updated",
+      });
+    } catch (error) {
+      console.error('Error updating history:', error);
+      toast({
+        title: "Update failed",
+        description: "Could not update the history entry",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleRegenerateContent = async (prompt: string, platforms: string[]) => {
     setCurrentState('dashboard');
     localStorage.setItem('currentAppState', 'dashboard');
@@ -240,6 +276,7 @@ const Index = () => {
             }}
             onDeleteEntry={handleDeleteHistoryEntry}
             onRegenerateContent={handleRegenerateContent}
+            onUpdateEntry={handleUpdateHistoryEntry}
           />
         );
       

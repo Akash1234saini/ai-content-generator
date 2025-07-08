@@ -4,6 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { 
   History, 
   Search, 
@@ -12,7 +20,13 @@ import {
   Copy,
   Calendar,
   ArrowLeft,
-  Filter
+  Filter,
+  Edit3,
+  Save,
+  Eye,
+  Check,
+  ExternalLink,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,7 +34,7 @@ interface HistoryEntry {
   id: string;
   prompt: string;
   platforms: string[];
-  results: Array<{ platform: string; content: string }>;
+  results: Array<{ platform: string; content: string; imagePrompt?: string }>;
   timestamp: Date;
 }
 
@@ -29,11 +43,25 @@ interface HistoryPageProps {
   onBack: () => void;
   onDeleteEntry: (id: string) => void;
   onRegenerateContent: (prompt: string, platforms: string[]) => void;
+  onUpdateEntry?: (id: string, updatedEntry: HistoryEntry) => void;
 }
 
-const HistoryPage = ({ history, onBack, onDeleteEntry, onRegenerateContent }: HistoryPageProps) => {
+const HistoryPage = ({ 
+  history, 
+  onBack, 
+  onDeleteEntry, 
+  onRegenerateContent,
+  onUpdateEntry 
+}: HistoryPageProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPlatformFilter, setSelectedPlatformFilter] = useState<string>('all');
+  const [displayCount, setDisplayCount] = useState(5);
+  const [modalEditingContent, setModalEditingContent] = useState<string>('');
+  const [modalEditingImagePrompt, setModalEditingImagePrompt] = useState<string>('');
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editingPlatform, setEditingPlatform] = useState<string>('');
+  const [editingType, setEditingType] = useState<'content' | 'image'>('content');
+  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
   const { toast } = useToast();
 
   const platforms = ['all', 'linkedin', 'instagram', 'facebook', 'pinterest', 'whatsapp', 'email', 'quadrant', 'youtube', 'miniblog'];
@@ -46,9 +74,20 @@ const HistoryPage = ({ history, onBack, onDeleteEntry, onRegenerateContent }: Hi
     return matchesSearch && matchesPlatform;
   });
 
-  const handleCopy = async (content: string) => {
+  const displayedHistory = filteredHistory.slice(0, displayCount);
+  const hasMore = filteredHistory.length > displayCount;
+
+  const handleShowMore = () => {
+    setDisplayCount(prev => prev + 5);
+  };
+
+  const handleCopy = async (content: string, key: string) => {
     try {
       await navigator.clipboard.writeText(content);
+      setCopiedStates(prev => ({ ...prev, [key]: true }));
+      setTimeout(() => {
+        setCopiedStates(prev => ({ ...prev, [key]: false }));
+      }, 2000);
       toast({
         title: "Copied to clipboard",
         description: "Content ready to paste!"
@@ -122,6 +161,48 @@ const HistoryPage = ({ history, onBack, onDeleteEntry, onRegenerateContent }: Hi
     window.open(shareUrl, '_blank');
   };
 
+  const handleModalEdit = (entryId: string, platform: string, content: string, type: 'content' | 'image' = 'content') => {
+    setEditingEntryId(entryId);
+    setEditingPlatform(platform);
+    setEditingType(type);
+    if (type === 'content') {
+      setModalEditingContent(content);
+    } else {
+      setModalEditingImagePrompt(content);
+    }
+  };
+
+  const handleSaveModalEdit = () => {
+    if (!editingEntryId || !onUpdateEntry) return;
+
+    const entryToUpdate = history.find(entry => entry.id === editingEntryId);
+    if (!entryToUpdate) return;
+
+    const updatedResults = entryToUpdate.results.map(result => {
+      if (result.platform === editingPlatform) {
+        if (editingType === 'content') {
+          return { ...result, content: modalEditingContent };
+        } else {
+          return { ...result, imagePrompt: modalEditingImagePrompt };
+        }
+      }
+      return result;
+    });
+
+    const updatedEntry = { ...entryToUpdate, results: updatedResults };
+    onUpdateEntry(editingEntryId, updatedEntry);
+
+    setEditingEntryId(null);
+    setEditingPlatform('');
+    setModalEditingContent('');
+    setModalEditingImagePrompt('');
+
+    toast({
+      title: editingType === 'content' ? "Content updated" : "Image prompt updated",
+      description: "Your changes have been saved to history"
+    });
+  };
+
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
@@ -189,7 +270,7 @@ const HistoryPage = ({ history, onBack, onDeleteEntry, onRegenerateContent }: Hi
         </Card>
 
         {/* History Entries */}
-        {filteredHistory.length === 0 ? (
+        {displayedHistory.length === 0 ? (
           <Card className="text-center py-16 bg-white/80 backdrop-blur-sm border-0 shadow-sm">
             <CardContent>
               <History className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -204,7 +285,7 @@ const HistoryPage = ({ history, onBack, onDeleteEntry, onRegenerateContent }: Hi
           </Card>
         ) : (
           <div className="space-y-6">
-            {filteredHistory.map((entry) => (
+            {displayedHistory.map((entry) => (
               <Card key={entry.id} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -259,19 +340,185 @@ const HistoryPage = ({ history, onBack, onDeleteEntry, onRegenerateContent }: Hi
                           </span>
                         </div>
                         
-                        <p className="text-sm text-gray-700 line-clamp-3">
-                          {result.content}
-                        </p>
+                        <div className="bg-white rounded p-3 h-20 overflow-y-auto border">
+                          <p className="text-sm text-gray-700 line-clamp-3">
+                            {result.content}
+                          </p>
+                        </div>
                         
-                        <div className="flex space-x-2">
+                        <div className="flex flex-wrap gap-2">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex items-center space-x-1"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>View Content</span>
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                              <DialogHeader>
+                                <DialogTitle className="flex items-center space-x-2">
+                                  <span className="capitalize">{result.platform} Content</span>
+                                </DialogTitle>
+                              </DialogHeader>
+                              <div className="mt-4 space-y-4">
+                                {editingEntryId === entry.id && editingPlatform === result.platform && editingType === 'content' ? (
+                                  <div className="space-y-3">
+                                    <label className="text-sm font-medium text-gray-700">Content</label>
+                                    <Textarea
+                                      value={modalEditingContent}
+                                      onChange={(e) => setModalEditingContent(e.target.value)}
+                                      rows={8}
+                                      className="text-sm resize-none"
+                                    />
+                                    <div className="flex space-x-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={handleSaveModalEdit}
+                                        className="flex items-center space-x-1"
+                                      >
+                                        <Save className="w-4 h-4" />
+                                        <span>Save</span>
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setEditingEntryId(null)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                                      <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                                        {result.content}
+                                      </p>
+                                    </div>
+                                    <div className="flex space-x-2 mt-4">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleModalEdit(entry.id, result.platform, result.content, 'content')}
+                                        className="flex items-center space-x-1"
+                                      >
+                                        <Edit3 className="w-4 h-4" />
+                                        <span>Edit</span>
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleCopy(result.content, `${entry.id}-${result.platform}-content`)}
+                                        className="flex items-center space-x-1"
+                                      >
+                                        {copiedStates[`${entry.id}-${result.platform}-content`] ? (
+                                          <Check className="w-4 h-4 text-green-600" />
+                                        ) : (
+                                          <Copy className="w-4 h-4" />
+                                        )}
+                                        <span>{copiedStates[`${entry.id}-${result.platform}-content`] ? 'Copied!' : 'Copy'}</span>
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleShare(result.platform, result.content)}
+                                        className="flex items-center space-x-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                                      >
+                                        <Share2 className="w-4 h-4" />
+                                        <span>Share</span>
+                                        <ExternalLink className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Image Prompt Section in Modal */}
+                                {result.imagePrompt && (
+                                  <div className="border-t pt-4">
+                                    <div className="flex items-center space-x-2 mb-3">
+                                      <ImageIcon className="w-4 h-4" />
+                                      <span className="text-sm font-medium text-gray-700">Image Prompt</span>
+                                    </div>
+                                    {editingEntryId === entry.id && editingPlatform === result.platform && editingType === 'image' ? (
+                                      <div className="space-y-3">
+                                        <Textarea
+                                          value={modalEditingImagePrompt}
+                                          onChange={(e) => setModalEditingImagePrompt(e.target.value)}
+                                          rows={6}
+                                          className="text-sm resize-none"
+                                        />
+                                        <div className="flex space-x-2">
+                                          <Button
+                                            size="sm"
+                                            onClick={handleSaveModalEdit}
+                                            className="flex items-center space-x-1"
+                                          >
+                                            <Save className="w-4 h-4" />
+                                            <span>Save</span>
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setEditingEntryId(null)}
+                                          >
+                                            Cancel
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div>
+                                        <div className="bg-blue-50 rounded-lg p-4 max-h-60 overflow-y-auto border border-blue-200">
+                                          <p className="text-sm text-gray-700 leading-relaxed">
+                                            {result.imagePrompt}
+                                          </p>
+                                        </div>
+                                        <div className="flex space-x-2 mt-4">
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleModalEdit(entry.id, result.platform, result.imagePrompt!, 'image')}
+                                            className="flex items-center space-x-1"
+                                          >
+                                            <Edit3 className="w-4 h-4" />
+                                            <span>Edit</span>
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleCopy(result.imagePrompt!, `${entry.id}-${result.platform}-image`)}
+                                            className="flex items-center space-x-1"
+                                          >
+                                            {copiedStates[`${entry.id}-${result.platform}-image`] ? (
+                                              <Check className="w-4 h-4 text-green-600" />
+                                            ) : (
+                                              <Copy className="w-4 h-4" />
+                                            )}
+                                            <span>{copiedStates[`${entry.id}-${result.platform}-image`] ? 'Copied!' : 'Copy'}</span>
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleCopy(result.content)}
+                            onClick={() => handleCopy(result.content, `${entry.id}-${result.platform}`)}
                             className="flex items-center space-x-1"
                           >
-                            <Copy className="w-3 h-3" />
-                            <span>Copy</span>
+                            {copiedStates[`${entry.id}-${result.platform}`] ? (
+                              <Check className="w-3 h-3 text-green-600" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                            <span>{copiedStates[`${entry.id}-${result.platform}`] ? 'Copied!' : 'Copy'}</span>
                           </Button>
                           <Button
                             size="sm"
@@ -289,6 +536,20 @@ const HistoryPage = ({ history, onBack, onDeleteEntry, onRegenerateContent }: Hi
                 </CardContent>
               </Card>
             ))}
+
+            {/* Show More Button */}
+            {hasMore && (
+              <div className="flex justify-center mt-8">
+                <Button
+                  onClick={handleShowMore}
+                  variant="outline"
+                  size="lg"
+                  className="px-8"
+                >
+                  Show More ({filteredHistory.length - displayCount} remaining)
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
