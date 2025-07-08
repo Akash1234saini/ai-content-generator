@@ -1,339 +1,221 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Sparkles, 
-  History, 
-  LogOut, 
-  Loader2, 
-  CheckCircle2,
-  Image as ImageIcon
-} from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
-import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { LogOut, Sparkles, History, Calendar, Wand2 } from 'lucide-react';
+import type { ContentResult } from '@/services/openaiService';
 
-interface User {
+interface UserProfile {
   email: string;
   name: string;
-}
-
-interface ContentResult {
-  platform: string;
-  content: string;
+  id: string;
 }
 
 interface PromptDashboardProps {
-  user: User;
+  user: UserProfile;
   onLogout: () => void;
   onGenerate: (prompt: string, platforms: string[], generateImages: boolean) => void;
   generatedContent: ContentResult[];
   isGenerating: boolean;
   onShowHistory: () => void;
+  onShowPlanner: () => void;
 }
 
-const platforms = [
-  { id: 'linkedin', name: 'LinkedIn', color: 'bg-blue-600' },
-  { id: 'instagram', name: 'Instagram', color: 'bg-pink-600' },
-  { id: 'facebook', name: 'Facebook', color: 'bg-blue-700' },
-  { id: 'pinterest', name: 'Pinterest', color: 'bg-red-600' },
-  { id: 'whatsapp', name: 'WhatsApp', color: 'bg-green-600' },
-  { id: 'email', name: 'Email', color: 'bg-gray-600' },
-  { id: 'quadrant', name: 'Quadrant', color: 'bg-purple-600' },
-  { id: 'youtube', name: 'YouTube', color: 'bg-red-500' },
-  { id: 'miniblog', name: 'Miniblog', color: 'bg-orange-600' }
-];
-
-const PromptDashboard = ({ 
-  user, 
-  onLogout, 
-  onGenerate, 
-  generatedContent, 
+const PromptDashboard: React.FC<PromptDashboardProps> = ({
+  user,
+  onLogout,
+  onGenerate,
+  generatedContent,
   isGenerating,
-  onShowHistory 
-}: PromptDashboardProps) => {
+  onShowHistory,
+  onShowPlanner
+}) => {
   const [prompt, setPrompt] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [generateImages, setGenerateImages] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [estimatedTime, setEstimatedTime] = useState(0);
-  const { toast } = useToast();
 
-  const handlePlatformToggle = (platformId: string) => {
+  const platforms = [
+    { id: 'linkedin', name: 'LinkedIn', icon: '💼' },
+    { id: 'pinterest', name: 'Pinterest', icon: '📌' },
+    { id: 'instagram', name: 'Instagram', icon: '📸' },
+    { id: 'facebook', name: 'Facebook', icon: '👥' },
+    { id: 'quadrant', name: 'Quadrant', icon: '📊' },
+    { id: 'whatsapp', name: 'WhatsApp', icon: '💬' },
+    { id: 'email', name: 'Email', icon: '📧' },
+    { id: 'youtube', name: 'YouTube', icon: '📺' },
+    { id: 'miniblog', name: 'Mini Blog', icon: '📝' },
+  ];
+
+  const handlePlatformChange = (platformId: string, checked: boolean) => {
     setSelectedPlatforms(prev => 
-      prev.includes(platformId)
-        ? prev.filter(id => id !== platformId)
-        : [...prev, platformId]
+      checked 
+        ? [...prev, platformId]
+        : prev.filter(p => p !== platformId)
     );
   };
 
-  const handleGenerate = () => {
-    if (!prompt.trim()) {
-      toast({
-        title: "Please enter a prompt",
-        description: "Write your idea to generate content",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (selectedPlatforms.length === 0) {
-      toast({
-        title: "Please select platforms",
-        description: "Choose at least one platform to generate content for",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Start progress simulation
-    setProgress(0);
-    const baseTime = selectedPlatforms.length * 2; // 2 seconds per platform
-    const imageTime = generateImages ? selectedPlatforms.length * 1.5 : 0; // 1.5 seconds extra per platform for images
-    setEstimatedTime(Math.ceil(baseTime + imageTime));
-
-    // Simulate progress
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          return 90; // Stop at 90% until actual completion
-        }
-        return prev + 10;
-      });
-    }, (baseTime + imageTime) * 100); // Update every 10% of estimated time
-
-    onGenerate(prompt.trim(), selectedPlatforms, generateImages);
-  };
-
-  // Reset progress when generation is complete
-  React.useEffect(() => {
-    if (!isGenerating && progress > 0) {
-      setProgress(100);
-      setTimeout(() => {
-        setProgress(0);
-        setEstimatedTime(0);
-      }, 1000);
-    }
-  }, [isGenerating, progress]);
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleGenerate();
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (prompt.trim() && selectedPlatforms.length > 0) {
+      onGenerate(prompt, selectedPlatforms, generateImages);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Sparkles className="h-8 w-8 text-indigo-600" />
+                <h1 className="text-2xl font-bold text-gray-900">AI Content Generator</h1>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">AI Content Generator</h1>
-              <p className="text-sm text-gray-600">Welcome back, {user.name}</p>
+            
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">Welcome, {user.name}</span>
+              <Button
+                variant="ghost"
+                onClick={onShowPlanner}
+                className="flex items-center space-x-2"
+              >
+                <Calendar className="h-4 w-4" />
+                <span>Content Planner</span>
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={onShowHistory}
+                className="flex items-center space-x-2"
+              >
+                <History className="h-4 w-4" />
+                <span>History</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={onLogout}
+                className="flex items-center space-x-2"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </Button>
             </div>
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            <Button 
-              variant="outline" 
-              onClick={onShowHistory}
-              className="flex items-center space-x-2"
-            >
-              <History className="w-4 h-4" />
-              <span>History</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={onLogout}
-              className="flex items-center space-x-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Logout</span>
-            </Button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto p-6">
-        <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
-          <CardHeader className="text-center pb-6">
-            <CardTitle className="text-2xl font-bold text-gray-900 mb-2">
-              Generate AI Content
+        <Card className="shadow-xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-bold text-indigo-700 mb-2">
+              Generate Amazing Content
             </CardTitle>
             <p className="text-gray-600">
-              Write your idea and select platforms to create engaging, platform-optimized content
+              Enter your prompt and select platforms to create engaging content instantly
             </p>
           </CardHeader>
           
-          <CardContent className="space-y-6">
-            {/* Prompt Input */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Your Idea</label>
-              <Textarea
-                placeholder="Write your idea here... (Press Enter to generate or Shift+Enter for new line)"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyPress={handleKeyPress}
-                rows={4}
-                className="resize-none text-base"
-                disabled={isGenerating}
-              />
-            </div>
-
-            {/* Platform Selection */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-700">Select Platforms</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {platforms.map((platform) => (
-                  <div
-                    key={platform.id}
-                    className={`relative flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                      selectedPlatforms.includes(platform.id)
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300 bg-white'
-                    }`}
-                    onClick={() => handlePlatformToggle(platform.id)}
-                  >
-                    <Checkbox
-                      checked={selectedPlatforms.includes(platform.id)}
-                      onChange={() => handlePlatformToggle(platform.id)}
-                      className="pointer-events-none"
-                    />
-                    <div className="flex items-center space-x-2 flex-1">
-                      <div className={`w-3 h-3 rounded-full ${platform.color}`}></div>
-                      <span className="text-sm font-medium text-gray-900">{platform.name}</span>
-                    </div>
-                    {selectedPlatforms.includes(platform.id) && (
-                      <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                    )}
-                  </div>
-                ))}
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Prompt Input */}
+              <div className="space-y-2">
+                <Label htmlFor="prompt" className="text-lg font-semibold text-gray-700">
+                  Your Content Prompt
+                </Label>
+                <Textarea
+                  id="prompt"
+                  placeholder="Enter your content idea here... (e.g., 'Create a motivational post about overcoming challenges in entrepreneurship')"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="min-h-[120px] text-lg border-2 border-gray-200 focus:border-indigo-500 rounded-lg"
+                />
               </div>
-              
-              {selectedPlatforms.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {selectedPlatforms.map(platformId => {
-                    const platform = platforms.find(p => p.id === platformId);
-                    return (
-                      <Badge key={platformId} variant="secondary" className="text-xs">
-                        {platform?.name}
-                      </Badge>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
 
-            {/* Image Generation Option */}
-            <div className="space-y-3">
-              <div className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200 bg-gray-50">
+              {/* Platform Selection */}
+              <div className="space-y-4">
+                <Label className="text-lg font-semibold text-gray-700">
+                  Select Platforms
+                </Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {platforms.map((platform) => (
+                    <div
+                      key={platform.id}
+                      className="flex items-center space-x-3 p-3 border-2 border-gray-200 rounded-lg hover:border-indigo-300 transition-colors"
+                    >
+                      <Checkbox
+                        id={platform.id}
+                        checked={selectedPlatforms.includes(platform.id)}
+                        onCheckedChange={(checked) => 
+                          handlePlatformChange(platform.id, checked as boolean)
+                        }
+                        className="w-5 h-5"
+                      />
+                      <Label 
+                        htmlFor={platform.id} 
+                        className="flex items-center space-x-2 cursor-pointer text-base"
+                      >
+                        <span className="text-xl">{platform.icon}</span>
+                        <span>{platform.name}</span>
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Image Generation Option */}
+              <div className="flex items-center space-x-3 p-4 bg-indigo-50 rounded-lg">
                 <Checkbox
+                  id="generateImages"
                   checked={generateImages}
                   onCheckedChange={(checked) => setGenerateImages(checked as boolean)}
+                  className="w-5 h-5"
                 />
-                <div className="flex items-center space-x-2">
-                  <ImageIcon className="w-5 h-5 text-gray-600" />
-                  <div>
-                    <label className="text-sm font-medium text-gray-900 cursor-pointer">
-                      Generate images for content
-                    </label>
-                    <p className="text-xs text-gray-600">
-                      Create platform-specific image prompts alongside your content
-                    </p>
+                <Label htmlFor="generateImages" className="text-base font-medium cursor-pointer">
+                  <span className="flex items-center space-x-2">
+                    <Wand2 className="h-4 w-4" />
+                    <span>Generate image prompts for visual content</span>
+                  </span>
+                </Label>
+              </div>
+
+              {/* Generate Button */}
+              <Button
+                type="submit"
+                disabled={!prompt.trim() || selectedPlatforms.length === 0 || isGenerating}
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-4 text-xl font-semibold rounded-lg shadow-lg transform transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
+              >
+                {isGenerating ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>Generating Amazing Content...</span>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            {isGenerating && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Generating content...</span>
-                  <span>~{estimatedTime}s remaining</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-              </div>
-            )}
-
-            {/* Generate Button */}
-            <Button
-              onClick={handleGenerate}
-              disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0}
-              size="lg"
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-4 text-lg disabled:opacity-50"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  Generating Content...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Generate Content
-                </>
-              )}
-            </Button>
-
-            {/* Quick Stats */}
-            {(prompt.trim() || selectedPlatforms.length > 0) && (
-              <div className="flex justify-center space-x-6 text-sm text-gray-500 pt-2">
-                <span>{prompt.trim().length} characters</span>
-                <span>•</span>
-                <span>{selectedPlatforms.length} platform{selectedPlatforms.length !== 1 ? 's' : ''}</span>
-                {generateImages && (
-                  <>
-                    <span>•</span>
-                    <span>Images enabled</span>
-                  </>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <Sparkles className="h-6 w-6" />
+                    <span>Generate Content</span>
+                  </div>
                 )}
-              </div>
-            )}
+              </Button>
+            </form>
           </CardContent>
         </Card>
 
-        {/* Recent Results Preview */}
-        {generatedContent.length > 0 && !isGenerating && (
-          <Card className="mt-6 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center space-x-2">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                <span>Latest Generated Content</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                {generatedContent.slice(0, 4).map((result, index) => (
-                  <div key={index} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <div className={`w-3 h-3 rounded-full ${platforms.find(p => p.id === result.platform)?.color || 'bg-gray-500'}`}></div>
-                      <span className="text-sm font-medium capitalize">{result.platform}</span>
-                    </div>
-                    <p className="text-sm text-gray-700 line-clamp-3">
-                      {result.content}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 text-center">
-                <Button variant="outline" size="sm" onClick={onShowHistory}>
-                  View Full Results →
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Quick Tips */}
+        <div className="mt-8 bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">💡 Quick Tips for Better Content</h3>
+          <ul className="space-y-2 text-gray-600">
+            <li>• Be specific about your target audience and goals</li>
+            <li>• Include relevant keywords and hashtags in your prompt</li>
+            <li>• Mention the tone you want (professional, casual, humorous, etc.)</li>
+            <li>• Specify content format (tips, questions, stories, etc.)</li>
+          </ul>
+        </div>
       </div>
     </div>
   );

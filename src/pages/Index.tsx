@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import AuthForm from '@/components/AuthForm';
 import PromptDashboard from '@/components/PromptDashboard';
 import ContentResults from '@/components/ContentResults';
 import HistoryPage from '@/components/HistoryPage';
+import ContentPlanner from '@/components/ContentPlanner';
 import { generateContent, loadContentHistory, deleteContentHistory, updateContentHistory } from '@/services/openaiService';
 import type { ContentResult, HistoryEntry } from '@/services/openaiService';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +16,7 @@ interface UserProfile {
   id: string;
 }
 
-type AppState = 'auth' | 'dashboard' | 'results' | 'history';
+type AppState = 'auth' | 'dashboard' | 'results' | 'history' | 'planner';
 
 const Index = () => {
   const [currentState, setCurrentState] = useState<AppState>('auth');
@@ -251,6 +251,10 @@ const Index = () => {
               setCurrentState('history');
               localStorage.setItem('currentAppState', 'history');
             }}
+            onShowPlanner={() => {
+              setCurrentState('planner');
+              localStorage.setItem('currentAppState', 'planner');
+            }}
           />
         );
       
@@ -277,6 +281,17 @@ const Index = () => {
             onDeleteEntry={handleDeleteHistoryEntry}
             onRegenerateContent={handleRegenerateContent}
             onUpdateEntry={handleUpdateHistoryEntry}
+          />
+        );
+
+      case 'planner':
+        return (
+          <ContentPlanner
+            user={user!}
+            onBack={() => {
+              setCurrentState('dashboard');
+              localStorage.setItem('currentAppState', 'dashboard');
+            }}
           />
         );
       
