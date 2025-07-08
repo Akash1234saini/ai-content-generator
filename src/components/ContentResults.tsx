@@ -1,9 +1,15 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { 
   Edit3, 
   Save, 
@@ -12,7 +18,8 @@ import {
   ExternalLink,
   Check,
   MessageCircle,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Eye
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -46,6 +53,7 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
   const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [copiedImageIndex, setCopiedImageIndex] = useState<number | null>(null);
+  const [viewingContentIndex, setViewingContentIndex] = useState<number | null>(null);
   const { toast } = useToast();
 
   const handleEdit = (index: number) => {
@@ -260,7 +268,7 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
                   <div className="space-y-4">
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-2 block">Content</label>
-                      <div className="bg-gray-50 rounded-lg p-4 min-h-[120px]">
+                      <div className="bg-gray-50 rounded-lg p-4 h-32 overflow-y-auto border">
                         <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                           {result.content}
                         </p>
@@ -268,6 +276,49 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
                     </div>
                     
                     <div className="flex flex-wrap gap-2">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex items-center space-x-1"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>View Content</span>
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center space-x-2">
+                              <div className={`w-4 h-4 rounded-full ${platformColors[result.platform] || 'bg-gray-500'}`}></div>
+                              <span className="capitalize">{result.platform} Content</span>
+                            </DialogTitle>
+                          </DialogHeader>
+                          <div className="mt-4">
+                            <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                              <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                                {result.content}
+                              </p>
+                            </div>
+                            <div className="flex space-x-2 mt-4">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleCopy(result.content, index)}
+                                className="flex items-center space-x-1"
+                              >
+                                {copiedIndex === index ? (
+                                  <Check className="w-4 h-4 text-green-600" />
+                                ) : (
+                                  <Copy className="w-4 h-4" />
+                                )}
+                                <span>{copiedIndex === index ? 'Copied!' : 'Copy'}</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      
                       <Button
                         size="sm"
                         variant="outline"
@@ -344,13 +395,56 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
                           <ImageIcon className="w-4 h-4" />
                           <span>Image Prompt</span>
                         </label>
-                        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200 h-20 overflow-y-auto">
                           <p className="text-sm text-gray-700 leading-relaxed">
                             {result.imagePrompt}
                           </p>
                         </div>
                         
                         <div className="flex flex-wrap gap-2">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex items-center space-x-1"
+                              >
+                                <Eye className="w-4 h-4" />
+                                <span>View Image Prompt</span>
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle className="flex items-center space-x-2">
+                                  <ImageIcon className="w-4 h-4" />
+                                  <span className="capitalize">{result.platform} Image Prompt</span>
+                                </DialogTitle>
+                              </DialogHeader>
+                              <div className="mt-4">
+                                <div className="bg-blue-50 rounded-lg p-4 max-h-60 overflow-y-auto border border-blue-200">
+                                  <p className="text-sm text-gray-700 leading-relaxed">
+                                    {result.imagePrompt}
+                                  </p>
+                                </div>
+                                <div className="flex space-x-2 mt-4">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleCopyImagePrompt(result.imagePrompt!, index)}
+                                    className="flex items-center space-x-1"
+                                  >
+                                    {copiedImageIndex === index ? (
+                                      <Check className="w-4 h-4 text-green-600" />
+                                    ) : (
+                                      <Copy className="w-4 h-4" />
+                                    )}
+                                    <span>{copiedImageIndex === index ? 'Copied!' : 'Copy'}</span>
+                                  </Button>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                          
                           <Button
                             size="sm"
                             variant="outline"
