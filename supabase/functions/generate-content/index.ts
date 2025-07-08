@@ -248,6 +248,25 @@ Link
 Let's build empires—with or without tools. 💡`;
 };
 
+// Content planner specific prompt
+const getContentPlannerPrompt = (formData: any) => {
+  return `Create a personalized ${formData.duration} social media content strategy for ${formData.industry}. 
+The user wants to post on ${formData.platforms.join(', ')}. 
+The main goal is ${formData.goal}. 
+They prefer ${formData.contentTypes.join(', ')}. 
+Target audience is: ${formData.targetAudience}. 
+Posting frequency: ${formData.postingFrequency}.
+
+Please provide a structured content plan with specific dates, topics, and draft captions. 
+Format your response as a clear list with:
+- Date (use YYYY-MM-DD format, starting from today)
+- Topic
+- Draft Caption (50-100 words, engaging and relevant to the platform)
+
+Make sure the posting frequency matches their preference and cover the full duration requested.
+Provide practical, actionable content ideas that align with their industry and goals.`;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -256,12 +275,14 @@ serve(async (req) => {
   try {
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
     if (!geminiApiKey) {
+      console.error('Gemini API key not found');
       throw new Error('Gemini API key not configured');
     }
 
     // Get the authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('No authorization header');
       throw new Error('No authorization header');
     }
 
@@ -275,10 +296,59 @@ serve(async (req) => {
     // Get the user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
+      console.error('User authentication failed:', userError);
       throw new Error('User not authenticated');
     }
 
-    const { prompt, platforms, generateImages }: ContentRequest = await req.json();
+    const requestBody = await req.json();
+    console.log('Request body:', requestBody);
+
+    // Check if this is a content planner request
+    if (requestBody.formData) {
+      // Handle content planner request
+      const fullPrompt = getContentPlannerPrompt(requestBody.formData);
+      
+      console.log('Calling Gemini for content planner with prompt:', fullPrompt);
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: fullPrompt
+            }]
+          }]
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Gemini API error:', data);
+        throw new Error(`Gemini API error: ${data.error?.message || 'Unknown error'}`);
+      }
+
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Failed to generate content plan';
+      
+      return new Response(JSON.stringify({ 
+        results: [{ 
+          platform: 'content-plan', 
+          content: content 
+        }] 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Handle regular content generation request
+    const { prompt, platforms, generateImages }: ContentRequest = requestBody;
+
+    if (!prompt || !platforms || platforms.length === 0) {
+      throw new Error('Missing required fields: prompt and platforms');
+    }
 
     const results = [];
 
@@ -290,6 +360,8 @@ serve(async (req) => {
       } else {
         fullPrompt = getGeneralPrompt(platform, prompt);
       }
+
+      console.log(`Generating content for ${platform}`);
 
       // Call Gemini API
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
@@ -354,7 +426,7 @@ serve(async (req) => {
       results.push(result);
     }
 
-    // Save to database
+    // Save to database only for regular content generation
     const { error: saveError } = await supabase
       .from('content_history')
       .insert({
@@ -378,7 +450,7 @@ serve(async (req) => {
       error: error.message,
       results: []
     }), {
-      status: 500,
+      status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

@@ -127,29 +127,11 @@ export const updateContentHistory = async (id: string, updatedEntry: HistoryEntr
 // Add new function for content planner
 export const generateContentPlan = async (formData: PlannerFormData): Promise<ContentPlanItem[]> => {
   try {
-    const prompt = `Create a personalized ${formData.duration} social media content strategy for ${formData.industry}. 
-    The user wants to post on ${formData.platforms.join(', ')}. 
-    The main goal is ${formData.goal}. 
-    They prefer ${formData.contentTypes.join(', ')}. 
-    Target audience is: ${formData.targetAudience}. 
-    Posting frequency: ${formData.postingFrequency}.
-    
-    Please provide a structured content plan with specific dates, topics, and draft captions. 
-    Format your response as a clear list with:
-    - Date (use YYYY-MM-DD format, starting from today)
-    - Topic
-    - Draft Caption (50-100 words, engaging and relevant to the platform)
-    
-    Make sure the posting frequency matches their preference and cover the full duration requested.
-    Provide practical, actionable content ideas that align with their industry and goals.`;
-
-    console.log('Calling edge function for content plan with:', { prompt, platforms: formData.platforms });
+    console.log('Calling edge function for content plan with:', formData);
     
     const { data, error } = await supabase.functions.invoke('generate-content', {
       body: {
-        prompt,
-        platforms: ['content-plan'], // Use a special platform identifier
-        generateImages: false
+        formData
       }
     });
 
