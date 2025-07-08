@@ -1,3 +1,4 @@
+
 // Gemini Content Generation Service using Supabase Edge Functions
 import { supabase } from '@/integrations/supabase/client';
 
@@ -96,7 +97,7 @@ export const updateContentHistory = async (id: string, updatedEntry: HistoryEntr
     .update({
       prompt: updatedEntry.prompt,
       platforms: updatedEntry.platforms,
-      results: updatedEntry.results,
+      results: updatedEntry.results as any, // Cast to any to match Json type
       updated_at: new Date().toISOString()
     })
     .eq('id', id);
