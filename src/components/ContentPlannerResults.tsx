@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Calendar, Edit, Download, Share, Copy } from 'lucide-react';
+import { ArrowLeft, Calendar, Edit, Download, Share, Copy, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -121,6 +121,35 @@ const ContentPlannerResults: React.FC<ContentPlannerResultsProps> = ({
     });
   };
 
+  const handleDownloadCSV = () => {
+    // Create CSV content
+    const headers = ['Date', 'Topic', 'Caption', 'Platform'];
+    const csvContent = [
+      headers.join(','),
+      ...plan.map(item => [
+        item.date,
+        `"${item.topic.replace(/"/g, '""')}"`,
+        `"${item.caption.replace(/"/g, '""')}"`,
+        item.platform || formData.platforms[0]
+      ].join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `content-plan-${formData.duration}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "CSV Downloaded",
+      description: "Content plan exported as CSV successfully",
+    });
+  };
+
   const handleDownloadPlan = () => {
     const planText = plan.map(item => 
       `Date: ${item.date}\nTopic: ${item.topic}\nCaption: ${item.caption}\n${'-'.repeat(50)}\n`
@@ -139,6 +168,42 @@ const ContentPlannerResults: React.FC<ContentPlannerResultsProps> = ({
     toast({
       title: "Plan Downloaded",
       description: "Content plan downloaded successfully",
+    });
+  };
+
+  const handleSendToGoogleSheets = () => {
+    // Create CSV content for Google Sheets
+    const headers = ['Date', 'Topic', 'Caption', 'Platform'];
+    const csvContent = [
+      headers.join(','),
+      ...plan.map(item => [
+        item.date,
+        `"${item.topic.replace(/"/g, '""')}"`,
+        `"${item.caption.replace(/"/g, '""')}"`,
+        item.platform || formData.platforms[0]
+      ].join(','))
+    ].join('\n');
+    
+    // Create a blob and generate URL
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    
+    // Create temporary download for CSV
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `content-plan-${formData.duration}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    // Open Google Sheets with import prompt
+    const sheetsUrl = 'https://docs.google.com/spreadsheets/create';
+    window.open(sheetsUrl, '_blank');
+    
+    toast({
+      title: "Google Sheets Ready",
+      description: "CSV downloaded and Google Sheets opened. Upload the CSV file to import your content plan.",
     });
   };
 
@@ -179,9 +244,17 @@ const ContentPlannerResults: React.FC<ContentPlannerResultsProps> = ({
               <Copy className="h-4 w-4 mr-2" />
               Copy
             </Button>
+            <Button variant="outline" onClick={handleDownloadCSV} size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              CSV
+            </Button>
             <Button variant="outline" onClick={handleDownloadPlan} size="sm">
               <Download className="h-4 w-4 mr-2" />
-              Download
+              TXT
+            </Button>
+            <Button variant="outline" onClick={handleSendToGoogleSheets} size="sm">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Google Sheets
             </Button>
             <Button variant="outline" onClick={handleSharePlan} size="sm">
               <Share className="h-4 w-4 mr-2" />
