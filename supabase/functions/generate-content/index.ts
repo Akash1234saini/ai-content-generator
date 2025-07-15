@@ -408,14 +408,8 @@ serve(async (req) => {
       if (generateImages) {
         let imagePromptText = '';
         
-        // Platform-specific image prompt instructions
-        if (platform === 'youtube') {
-          imagePromptText = `Create a detailed YouTube thumbnail image prompt based on this content: ${content.substring(0, 200)}... The image should be 16:9 aspect ratio (1280x720), eye-catching, with bold text overlay potential, and designed to attract clicks. Make it vibrant and engaging for YouTube's platform.`;
-        } else if (platform === 'miniblog') {
-          imagePromptText = `Create a detailed blog header image prompt based on this content: ${content.substring(0, 200)}... The image should be 16:9 or 3:2 aspect ratio, professional, clean, and suitable for a blog post header. Make it relevant to the blog topic and visually appealing.`;
-        } else {
-          imagePromptText = `Create a detailed image prompt for ${platform} based on this content: ${content.substring(0, 200)}... Make it visual, specific, and optimized for ${platform}'s visual style.`;
-        }
+        // Simple, single paragraph image prompt
+        imagePromptText = `Create a single, concise image generation prompt (maximum 100 words) for ${platform} based on this content: "${content.substring(0, 300)}". The prompt should be direct, visual, and specific - describing style, colors, composition, and mood that would work well for ${platform}. Make it ready to use in any AI image generator without additional options or complexity.`;
 
         const imagePromptResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
           method: 'POST',

@@ -20,14 +20,18 @@ import {
   Check,
   MessageCircle,
   Image as ImageIcon,
-  Eye
+  Eye,
+  Wand2,
+  Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ContentResult {
   platform: string;
   content: string;
   imagePrompt?: string;
+  generatedImage?: string;
 }
 
 interface ContentResultsProps {
@@ -58,6 +62,8 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
   const [modalEditingImageIndex, setModalEditingImageIndex] = useState<number | null>(null);
   const [modalContent, setModalContent] = useState('');
   const [modalImagePrompt, setModalImagePrompt] = useState('');
+  const [generatingImage, setGeneratingImage] = useState<number | null>(null);
+  const [showImageModal, setShowImageModal] = useState<number | null>(null);
   const { toast } = useToast();
 
   const handleEdit = (index: number) => {
@@ -226,6 +232,50 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
     }
 
     window.open(shareUrl, '_blank');
+  };
+
+  const handleGenerateImage = async (index: number) => {
+    const result = editingResults[index];
+    if (!result.imagePrompt) {
+      toast({
+        title: "No image prompt",
+        description: "Please generate content with image prompts first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setGeneratingImage(index);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-image', {
+        body: { prompt: result.imagePrompt }
+      });
+
+      if (error) throw error;
+
+      const updatedResults = [...editingResults];
+      updatedResults[index] = { 
+        ...updatedResults[index], 
+        generatedImage: data.imageUrl || data.image 
+      };
+      setEditingResults(updatedResults);
+      onSave(updatedResults);
+
+      toast({
+        title: "Image generated!",
+        description: "Your image has been generated successfully"
+      });
+    } catch (error) {
+      console.error('Error generating image:', error);
+      toast({
+        title: "Image generation failed",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingImage(null);
+    }
   };
 
   const hasImagePrompts = results.some(result => result.imagePrompt);
@@ -554,19 +604,45 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
                                         <Edit3 className="w-4 h-4" />
                                         <span>Edit</span>
                                       </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleCopyImagePrompt(result.imagePrompt!, index)}
-                                        className="flex items-center space-x-1"
-                                      >
-                                        {copiedImageIndex === index ? (
-                                          <Check className="w-4 h-4 text-green-600" />
-                                        ) : (
-                                          <Copy className="w-4 h-4" />
-                                        )}
-                                        <span>{copiedImageIndex === index ? 'Copied!' : 'Copy'}</span>
-                                      </Button>
+                                       <Button
+                                         size="sm"
+                                         variant="outline"
+                                         onClick={() => handleCopyImagePrompt(result.imagePrompt!, index)}
+                                         className="flex items-center space-x-1"
+                                       >
+                                         {copiedImageIndex === index ? (
+                                           <Check className="w-4 h-4 text-green-600" />
+                                         ) : (
+                                           <Copy className="w-4 h-4" />
+                                         )}
+                                         <span>{copiedImageIndex === index ? 'Copied!' : 'Copy'}</span>
+                                       </Button>
+                                       
+                                       <Button
+                                         size="sm"
+                                         onClick={() => handleGenerateImage(index)}
+                                         disabled={generatingImage === index}
+                                         className="flex items-center space-x-1"
+                                       >
+                                         {generatingImage === index ? (
+                                           <Loader2 className="w-4 h-4 animate-spin" />
+                                         ) : (
+                                           <Wand2 className="w-4 h-4" />
+                                         )}
+                                         <span>{generatingImage === index ? 'Generating...' : 'Generate Image'}</span>
+                                       </Button>
+
+                                       {result.generatedImage && (
+                                         <Button
+                                           size="sm"
+                                           variant="outline"
+                                           onClick={() => setShowImageModal(index)}
+                                           className="flex items-center space-x-1"
+                                         >
+                                           <Eye className="w-4 h-4" />
+                                           <span>View Image</span>
+                                         </Button>
+                                       )}
                                     </div>
                                   </div>
                                 )}
@@ -597,6 +673,32 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
                             )}
                             <span>{copiedImageIndex === index ? 'Copied!' : 'Copy'}</span>
                           </Button>
+
+                          <Button
+                            size="sm"
+                            onClick={() => handleGenerateImage(index)}
+                            disabled={generatingImage === index}
+                            className="flex items-center space-x-1"
+                          >
+                            {generatingImage === index ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Wand2 className="w-4 h-4" />
+                            )}
+                            <span>{generatingImage === index ? 'Generating...' : 'Generate Image'}</span>
+                          </Button>
+
+                          {result.generatedImage && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setShowImageModal(index)}
+                              className="flex items-center space-x-1"
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>View Image</span>
+                            </Button>
+                          )}
                         </div>
                       </div>
                     )}
@@ -606,6 +708,41 @@ const ContentResults = ({ results, onSave, onBack }: ContentResultsProps) => {
             </Card>
           ))}
         </div>
+
+        {/* Image View Modal */}
+        {showImageModal !== null && editingResults[showImageModal]?.generatedImage && (
+          <Dialog open={showImageModal !== null} onOpenChange={() => setShowImageModal(null)}>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <ImageIcon className="w-4 h-4" />
+                  <span className="capitalize">{editingResults[showImageModal].platform} Generated Image</span>
+                </DialogTitle>
+              </DialogHeader>
+              <div className="mt-4">
+                <img 
+                  src={editingResults[showImageModal].generatedImage} 
+                  alt="Generated content image"
+                  className="w-full h-auto rounded-lg shadow-lg"
+                />
+                <div className="mt-4 flex space-x-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = editingResults[showImageModal!].generatedImage!;
+                      link.download = `${editingResults[showImageModal!].platform}-image.png`;
+                      link.click();
+                    }}
+                  >
+                    Download Image
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Action Buttons */}
         <div className="mt-8 flex justify-center space-x-4">
