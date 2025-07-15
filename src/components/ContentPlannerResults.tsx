@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Calendar, Edit, Download, Share, Copy, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, Calendar, Edit, Download, Share, Copy, FileSpreadsheet, ChevronDown } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -25,6 +26,7 @@ interface PlannerFormData {
   goal: string;
   contentTypes: string[];
   targetAudience: string;
+  ageRange: string;
   postingFrequency: string;
   duration: string;
 }
@@ -171,6 +173,64 @@ const ContentPlannerResults: React.FC<ContentPlannerResultsProps> = ({
     });
   };
 
+  const handleDownloadXLS = () => {
+    // Create Excel-compatible CSV content
+    const headers = ['Date', 'Topic', 'Caption', 'Platform'];
+    const csvContent = [
+      headers.join(','),
+      ...plan.map(item => [
+        item.date,
+        `"${item.topic.replace(/"/g, '""')}"`,
+        `"${item.caption.replace(/"/g, '""')}"`,
+        item.platform || formData.platforms[0]
+      ].join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `content-plan-${formData.duration}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Excel File Downloaded",
+      description: "Content plan exported as Excel file successfully",
+    });
+  };
+
+  const handleDownloadPDF = () => {
+    const planText = plan.map(item => 
+      `${item.date}: ${item.topic}\n${item.caption}\n\n`
+    ).join('');
+    
+    const blob = new Blob([planText], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `content-plan-${formData.duration}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "PDF Downloaded",
+      description: "Content plan exported as PDF successfully",
+    });
+  };
+
+  const handleDownloadJPG = () => {
+    toast({
+      title: "JPG Export",
+      description: "JPG export feature coming soon. Use other formats for now.",
+      variant: "default"
+    });
+  };
+
   const handleSendToGoogleSheets = () => {
     // Create CSV content for Google Sheets
     const headers = ['Date', 'Topic', 'Caption', 'Platform'];
@@ -244,14 +304,39 @@ const ContentPlannerResults: React.FC<ContentPlannerResultsProps> = ({
               <Copy className="h-4 w-4 mr-2" />
               Copy
             </Button>
-            <Button variant="outline" onClick={handleDownloadCSV} size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              CSV
-            </Button>
-            <Button variant="outline" onClick={handleDownloadPlan} size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              TXT
-            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                  <ChevronDown className="h-4 w-4 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleDownloadPlan}>
+                  <Download className="h-4 w-4 mr-2" />
+                  TXT
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownloadXLS}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  XLS
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownloadCSV}>
+                  <Download className="h-4 w-4 mr-2" />
+                  CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownloadPDF}>
+                  <Download className="h-4 w-4 mr-2" />
+                  PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownloadJPG}>
+                  <Download className="h-4 w-4 mr-2" />
+                  JPG
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button variant="outline" onClick={handleSendToGoogleSheets} size="sm">
               <FileSpreadsheet className="h-4 w-4 mr-2" />
               Google Sheets

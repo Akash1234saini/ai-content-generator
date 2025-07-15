@@ -65,7 +65,7 @@ const Index = () => {
           
           // Restore saved state or default to dashboard
           const savedState = localStorage.getItem('currentAppState') as AppState;
-          if (savedState && ['dashboard', 'results', 'history'].includes(savedState)) {
+          if (savedState && ['dashboard', 'results', 'history', 'planner'].includes(savedState)) {
             setCurrentState(savedState);
           } else {
             setCurrentState('dashboard');
@@ -100,7 +100,7 @@ const Index = () => {
         
         // Restore saved state or default to dashboard
         const savedState = localStorage.getItem('currentAppState') as AppState;
-        if (savedState && ['dashboard', 'results', 'history'].includes(savedState)) {
+        if (savedState && ['dashboard', 'results', 'history', 'planner'].includes(savedState)) {
           setCurrentState(savedState);
         } else {
           setCurrentState('dashboard');

@@ -250,12 +250,21 @@ Let's build empires—with or without tools. 💡`;
 
 // Content planner specific prompt
 const getContentPlannerPrompt = (formData: any) => {
-  return `Create a personalized ${formData.duration} social media content strategy for ${formData.industry}. 
-The user wants to post on ${formData.platforms.join(', ')}. 
-The main goal is ${formData.goal}. 
-They prefer ${formData.contentTypes.join(', ')}. 
-Target audience is: ${formData.targetAudience}. 
-Posting frequency: ${formData.postingFrequency}.
+  const industryText = formData.industry ? ` for ${formData.industry}` : '';
+  const platformsText = formData.platforms && formData.platforms.length > 0 ? ` on ${formData.platforms.join(', ')}` : '';
+  const goalText = formData.goal ? ` with the main goal of ${formData.goal}` : '';
+  const contentTypesText = formData.contentTypes && formData.contentTypes.length > 0 ? ` They prefer ${formData.contentTypes.join(', ')}` : '';
+  const audienceText = formData.targetAudience ? ` Target audience: ${formData.targetAudience}` : '';
+  const ageRangeText = formData.ageRange ? ` (age range: ${formData.ageRange})` : '';
+  const frequencyText = formData.postingFrequency ? ` Posting frequency: ${formData.postingFrequency}` : '';
+  const durationText = formData.duration || '1 week';
+  
+  return `Create a personalized ${durationText} social media content strategy${industryText}.
+${platformsText ? `The user wants to post${platformsText}.` : ''}
+${goalText ? `The${goalText}.` : ''}
+${contentTypesText}
+${audienceText}${ageRangeText}
+${frequencyText}
 
 Please provide a structured content plan with specific dates, topics, and draft captions. 
 Format your response as a clear list with:
@@ -264,6 +273,9 @@ Format your response as a clear list with:
 - Draft Caption (50-100 words, engaging and relevant to the platform)
 
 Make sure the posting frequency matches their preference and cover the full duration requested.
+For "weekdays only" frequency, only include Monday through Friday dates.
+For "daily" frequency, include all 7 days of the week.
+For "3x/week" frequency, space out posts across the week (like Monday, Wednesday, Friday).
 Provide practical, actionable content ideas that align with their industry and goals.`;
 };
 

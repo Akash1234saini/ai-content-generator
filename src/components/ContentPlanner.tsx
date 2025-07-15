@@ -7,10 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { generateContentPlan } from '@/services/openaiService';
 import { useToast } from '@/hooks/use-toast';
 import ContentPlannerResults from './ContentPlannerResults';
-import { Calendar, ArrowLeft } from 'lucide-react';
+import { Calendar, ArrowLeft, Clock } from 'lucide-react';
 
 interface UserProfile {
   email: string;
@@ -29,6 +30,7 @@ interface PlannerFormData {
   goal: string;
   contentTypes: string[];
   targetAudience: string;
+  ageRange: string;
   postingFrequency: string;
   duration: string;
 }
@@ -47,9 +49,13 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ user, onBack }) => {
     goal: '',
     contentTypes: [],
     targetAudience: '',
+    ageRange: '',
     postingFrequency: '',
     duration: ''
   });
+  
+  const [progress, setProgress] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(0);
   
   const [generatedPlan, setGeneratedPlan] = useState<ContentPlanItem[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -60,7 +66,8 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ user, onBack }) => {
   const contentTypes = ['Videos', 'Carousels', 'Quotes', 'Tips', 'Memes', 'Text Posts'];
   const goals = ['Awareness', 'Sales', 'Engagement', 'Education', 'Traffic', 'Leads'];
   const frequencies = ['Daily', '3x/week', 'Weekdays only', 'Custom'];
-  const durations = ['1 week', '2 weeks', '1 month', '3 months'];
+  const durations = ['1 week', '2 weeks', '3 weeks', '4 weeks'];
+  const ageRanges = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
 
   const handlePlatformChange = (platform: string, checked: boolean) => {
     setFormData(prev => ({
@@ -83,26 +90,33 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ user, onBack }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.industry || formData.platforms.length === 0 || !formData.goal || 
-        formData.contentTypes.length === 0 || !formData.targetAudience || 
-        !formData.postingFrequency || !formData.duration) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsGenerating(true);
+    setProgress(0);
+    setTimeRemaining(30);
+    
+    // Progress simulation
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 90) return prev;
+        return prev + Math.random() * 15;
+      });
+    }, 1000);
+    
+    const timerInterval = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) return 0;
+        return prev - 1;
+      });
+    }, 1000);
     
     try {
       const plan = await generateContentPlan(formData);
+      setProgress(100);
       setGeneratedPlan(plan);
       setShowResults(true);
       toast({
         title: "Content Plan Generated!",
-        description: `Created a ${formData.duration} content strategy for ${formData.platforms.length} platform${formData.platforms.length > 1 ? 's' : ''}`,
+        description: `Created a ${formData.duration} content strategy for ${formData.platforms.length || 1} platform${formData.platforms.length > 1 ? 's' : ''}`,
       });
     } catch (error) {
       console.error('Plan generation error:', error);
@@ -112,7 +126,11 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ user, onBack }) => {
         variant: "destructive"
       });
     } finally {
+      clearInterval(progressInterval);
+      clearInterval(timerInterval);
       setIsGenerating(false);
+      setProgress(0);
+      setTimeRemaining(0);
     }
   };
 
@@ -157,7 +175,7 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ user, onBack }) => {
               {/* Industry/Niche */}
               <div className="space-y-2">
                 <Label htmlFor="industry" className="text-sm font-medium">
-                  What is your industry or niche? *
+                  What is your industry or niche?
                 </Label>
                 <Input
                   id="industry"
@@ -171,7 +189,7 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ user, onBack }) => {
               {/* Platforms */}
               <div className="space-y-3">
                 <Label className="text-sm font-medium">
-                  Which platforms do you want to plan for? *
+                  Which platforms do you want to plan for?
                 </Label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {platforms.map((platform) => (
@@ -194,7 +212,7 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ user, onBack }) => {
               {/* Goal */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  What is your main goal? *
+                  What is your main goal?
                 </Label>
                 <Select value={formData.goal} onValueChange={(value) => 
                   setFormData(prev => ({ ...prev, goal: value }))
@@ -215,7 +233,7 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ user, onBack }) => {
               {/* Content Types */}
               <div className="space-y-3">
                 <Label className="text-sm font-medium">
-                  What types of content do you prefer? *
+                  What types of content do you prefer?
                 </Label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {contentTypes.map((contentType) => (
@@ -238,21 +256,47 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ user, onBack }) => {
               {/* Target Audience */}
               <div className="space-y-2">
                 <Label htmlFor="audience" className="text-sm font-medium">
-                  Who is your target audience? *
+                  Who is your target audience?
                 </Label>
-                <Textarea
-                  id="audience"
-                  value={formData.targetAudience}
-                  onChange={(e) => setFormData(prev => ({ ...prev, targetAudience: e.target.value }))}
-                  placeholder="e.g., Small business owners, fitness enthusiasts, working professionals aged 25-40"
-                  className="w-full min-h-[80px]"
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="audience" className="text-xs text-gray-600 mb-2 block">
+                      Audience Description
+                    </Label>
+                    <Input
+                      id="audience"
+                      value={formData.targetAudience}
+                      onChange={(e) => setFormData(prev => ({ ...prev, targetAudience: e.target.value }))}
+                      placeholder="e.g., small business owners, fitness enthusiasts, homemakers"
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-600 mb-2 block">
+                      Age Range
+                    </Label>
+                    <Select value={formData.ageRange} onValueChange={(value) => 
+                      setFormData(prev => ({ ...prev, ageRange: value }))
+                    }>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select age range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ageRanges.map((ageRange) => (
+                          <SelectItem key={ageRange} value={ageRange}>
+                            {ageRange}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
 
               {/* Posting Frequency */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  How often do you want to post? *
+                  How often do you want to post?
                 </Label>
                 <Select value={formData.postingFrequency} onValueChange={(value) => 
                   setFormData(prev => ({ ...prev, postingFrequency: value }))
@@ -273,7 +317,7 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ user, onBack }) => {
               {/* Duration */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  How long should the plan cover? *
+                  How long should the plan cover?
                 </Label>
                 <Select value={formData.duration} onValueChange={(value) => 
                   setFormData(prev => ({ ...prev, duration: value }))
@@ -290,6 +334,21 @@ const ContentPlanner: React.FC<ContentPlannerProps> = ({ user, onBack }) => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Progress Bar and Timer */}
+              {isGenerating && (
+                <div className="space-y-4 p-4 bg-blue-50 rounded-lg border">
+                  <div className="flex items-center gap-2 text-indigo-700 font-medium">
+                    <Clock className="h-4 w-4" />
+                    Generating your content plan...
+                  </div>
+                  <Progress value={progress} className="w-full" />
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>{Math.round(progress)}% complete</span>
+                    <span>{timeRemaining}s remaining</span>
+                  </div>
+                </div>
+              )}
 
               <Button
                 type="submit"
